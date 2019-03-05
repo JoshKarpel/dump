@@ -46,14 +46,23 @@ PREFIX = "\n  "
     help="If passed, continue uploading other files if an upload fails.",
 )
 @click.option(
+    "--report",
+    is_flag=True,
+    default=False,
+    help="If passed, print a plain-text report when done.",
+)
+@click.option(
     "--verbose",
     "-v",
     is_flag=True,
     default=False,
     help="Show log messages as the CLI runs.",
 )
-def cli(files, auth, soft, verbose):
+def cli(files, auth, soft, report, verbose):
     """Dump command line tool."""
+    successes = []
+    fails = []
+
     if verbose:
         _start_logger()
     logger.debug(f'Dump called with arguments "{" ".join(sys.argv[1:])}"')
@@ -62,17 +71,14 @@ def cli(files, auth, soft, verbose):
     if auth_token is None:
         raise exceptions.MissingAuthorization("No auth token provided")
 
-    with make_spinner(text="Connecting to Dropbox") as spinner:
-        dbx = dump.get_dropbox(auth_token)
-        spinner.succeed("Connected to Dropbox")
+    dbx = dump.get_dropbox(auth_token)
 
-    successes = []
-    fails = []
     for path in files:
         with make_spinner(text=f"Uploading {path}") as spinner:
             try:
-                dump.upload_file(dbx, path)
-                spinner.succeed(f"Uploaded {path}")
+                for curr, total in dump.upload_file(dbx, path):
+                    spinner.text = f"[{curr}/{total}] Uploading {path}"
+                spinner.succeed(f"[{total}/{total}] Uploaded {path}")
                 successes.append(path)
             except Exception as e:
                 spinner.fail(
@@ -83,12 +89,13 @@ def cli(files, auth, soft, verbose):
                     click.echo(f"ERR: file upload failed for {path}, aborting")
                     sys.exit(1)
 
-    if len(successes) > 0:
-        msg = PREFIX + PREFIX.join(successes)
-        click.echo(f"Uploaded:{msg}")
-    if len(fails) > 0:
-        msg = PREFIX + PREFIX.join(fails)
-        click.echo(f"Failed to upload:{msg}")
+    if report:
+        if len(successes) > 0:
+            msg = PREFIX + PREFIX.join(successes)
+            click.echo(f"Uploaded:{msg}")
+        if len(fails) > 0:
+            msg = PREFIX + PREFIX.join(fails)
+            click.echo(f"Failed to upload:{msg}")
 
 
 def _start_logger():
