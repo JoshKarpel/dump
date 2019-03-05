@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Tuple, Iterator
 
 import logging
 import math
@@ -21,10 +21,12 @@ DEFAULT_CHUNK_SIZE = 8 * 1024 * 1024
 MAXIMUM_CHUNK_SIZE = 149 * 1024 * 1024
 
 
-def upload_file(dbx: dropbox.Dropbox, path: Path, chunk_size=DEFAULT_CHUNK_SIZE):
+def upload_file(
+    dbx: dropbox.Dropbox, path: Path, chunk_size=DEFAULT_CHUNK_SIZE
+) -> Iterator[Tuple[int, int]]:
     if not 0 < chunk_size < MAXIMUM_CHUNK_SIZE:
         raise exceptions.InvalidChunkSize(
-            f"Chunk size is not valid (must be less than 150 MB, was {chunk_size / 1024 / 1024} MB)"
+            f"Chunk size is not valid (must be less than ~150 MB, was {chunk_size / 1024 / 1024} MB)"
         )
     path = Path(path)
 
@@ -36,7 +38,9 @@ def upload_file(dbx: dropbox.Dropbox, path: Path, chunk_size=DEFAULT_CHUNK_SIZE)
     yield from method(dbx, path, chunk_size)
 
 
-def _upload_small_file(dbx: dropbox.Dropbox, path: Path, chunk_size: int):
+def _upload_small_file(
+    dbx: dropbox.Dropbox, path: Path, chunk_size: int
+) -> Iterator[Tuple[int, int]]:
     yield 0, 1
     dbx.files_upload(
         f=path.read_bytes(),
@@ -47,7 +51,9 @@ def _upload_small_file(dbx: dropbox.Dropbox, path: Path, chunk_size: int):
     yield 1, 1
 
 
-def _upload_large_file(dbx: dropbox.Dropbox, path: Path, chunk_size: int):
+def _upload_large_file(
+    dbx: dropbox.Dropbox, path: Path, chunk_size: int
+) -> Iterator[Tuple[int, int]]:
     file_size = path.stat().st_size
     num_chunks = math.ceil(file_size / chunk_size)
     curr_chunk = 0
