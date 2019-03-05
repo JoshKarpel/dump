@@ -39,6 +39,7 @@ PREFIX = "\n  "
     default=None,
     help="Your Dropbox authorization token. Preferred: set environment variable DROP_AUTH",
 )
+@click.option("--chunk", "-c", type=int, default=8, help="Chunk size in MB")
 @click.option(
     "--soft",
     is_flag=True,
@@ -58,8 +59,10 @@ PREFIX = "\n  "
     default=False,
     help="Show log messages as the CLI runs.",
 )
-def cli(files, auth, soft, report, verbose):
+def cli(files, auth, soft, chunk, report, verbose):
     """Dump command line tool."""
+    chunk_size = chunk * 1024 * 1024
+
     successes = []
     fails = []
 
@@ -76,7 +79,7 @@ def cli(files, auth, soft, report, verbose):
     for path in files:
         with make_spinner(text=f"Uploading {path}") as spinner:
             try:
-                for curr, total in dump.upload_file(dbx, path):
+                for curr, total in dump.upload_file(dbx, path, chunk_size=chunk_size):
                     spinner.text = f"[{curr}/{total}] Uploading {path}"
                 spinner.succeed(f"[{total}/{total}] Uploaded {path}")
                 successes.append(path)

@@ -4,3 +4,7 @@ class DumpException(Exception):
 
 class MissingAuthorization(DumpException):
     pass
+
+
+class InvalidChunkSize(DumpException):
+    pass
