@@ -2,6 +2,7 @@ import logging
 import random
 import sys
 import os
+import traceback
 
 import click
 from halo import Halo
@@ -22,6 +23,8 @@ def make_spinner(*args, **kwargs):
 
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 
+PREFIX = "\n  "
+
 
 @click.command()
 @click.argument(
@@ -31,7 +34,17 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
         exists=True, file_okay=True, dir_okay=False, resolve_path=True, readable=True
     ),
 )
-@click.option("--auth", default=None)
+@click.option(
+    "--auth",
+    default=None,
+    help="Your Dropbox authorization token. Preferred: set environment variable DROP_AUTH",
+)
+@click.option(
+    "--soft",
+    is_flag=True,
+    default=False,
+    help="If passed, continue uploading other files if an upload fails.",
+)
 @click.option(
     "--verbose",
     "-v",
@@ -39,7 +52,7 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
     default=False,
     help="Show log messages as the CLI runs.",
 )
-def cli(files, auth, verbose):
+def cli(files, auth, soft, verbose):
     """Dump command line tool."""
     if verbose:
         _start_logger()
@@ -49,9 +62,33 @@ def cli(files, auth, verbose):
     if auth_token is None:
         raise exceptions.MissingAuthorization("No auth token provided")
 
-    dbx = dump.get_dropbox(auth_token)
+    with make_spinner(text="Connecting to Dropbox") as spinner:
+        dbx = dump.get_dropbox(auth_token)
+        spinner.succeed("Connected to Dropbox")
+
+    successes = []
+    fails = []
     for path in files:
-        dump.upload_file(dbx, path)
+        with make_spinner(text=f"Uploading {path}") as spinner:
+            try:
+                dump.upload_file(dbx, path)
+                spinner.succeed(f"Uploaded {path}")
+                successes.append(path)
+            except Exception as e:
+                spinner.fail(
+                    f"Upload for {path} failed:\n{''.join(traceback.format_exception_only(e.__class__, e))}"
+                )
+                fails.append(path)
+                if not soft:
+                    click.echo(f"ERR: file upload failed for {path}, aborting")
+                    sys.exit(1)
+
+    if len(successes) > 0:
+        msg = PREFIX + PREFIX.join(successes)
+        click.echo(f"Uploaded:{msg}")
+    if len(fails) > 0:
+        msg = PREFIX + PREFIX.join(fails)
+        click.echo(f"Failed to upload:{msg}")
 
 
 def _start_logger():

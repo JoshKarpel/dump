@@ -18,7 +18,7 @@ def get_dropbox(auth_token: str) -> dropbox.Dropbox:
 CHUNK_SIZE = 149 * 1024 * 1024  # really 150, but lowball it a little
 
 
-def upload_file(dbx: dropbox.Dropbox, path: Union[str, bytes]):
+def upload_file(dbx: dropbox.Dropbox, path: Path):
     path = Path(path)
 
     if path.stat().st_size < CHUNK_SIZE:
