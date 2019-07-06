@@ -26,7 +26,7 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 PREFIX = "\n  "
 
 
-@click.command()
+@click.command(context_settings=CONTEXT_SETTINGS)
 @click.argument(
     "files",
     nargs=-1,
@@ -37,20 +37,17 @@ PREFIX = "\n  "
 @click.option(
     "--auth",
     default=None,
-    help="Your Dropbox authorization token. Preferred: set environment variable DROP_AUTH",
+    help="Your Dropbox authorization token. Preferred: set environment variable DUMP_AUTH.",
 )
-@click.option("--chunk", "-c", type=int, default=8, help="Chunk size in MB")
+@click.option("--chunk", type=int, default=8, help="Chunk size in MB. Max: ~150 MB.")
 @click.option(
     "--soft",
     is_flag=True,
     default=False,
-    help="If passed, continue uploading other files if an upload fails.",
+    help="Continue uploading other files if an upload fails.",
 )
 @click.option(
-    "--report",
-    is_flag=True,
-    default=False,
-    help="If passed, print a plain-text report when done.",
+    "--report", is_flag=True, default=False, help="Print a plain-text report when done."
 )
 @click.option(
     "--verbose",
@@ -60,7 +57,9 @@ PREFIX = "\n  "
     help="Show log messages as the CLI runs.",
 )
 def cli(files, auth, soft, chunk, report, verbose):
-    """Dump command line tool."""
+    """
+    Send files to your Dropbox from the command line.
+    """
     chunk_size = chunk * 1024 * 1024
 
     successes = []
@@ -70,7 +69,7 @@ def cli(files, auth, soft, chunk, report, verbose):
         _start_logger()
     logger.debug(f'Dump called with arguments "{" ".join(sys.argv[1:])}"')
 
-    auth_token = auth or os.getenv("DROP_AUTH", None)
+    auth_token = auth or os.getenv("DUMP_AUTH", None)
     if auth_token is None:
         raise exceptions.MissingAuthorization("No auth token provided")
 
